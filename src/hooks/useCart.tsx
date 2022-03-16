@@ -51,6 +51,7 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
       // Verificar para não permitir solicitar valor maior que o do estoque
       if (amount > stockAmount) {
         toast.error("Quantidade solicitada fora de estoque");
+        return;
       }
       //Atualizar a quantidade do produto se ele existe
       if (productExists) {
@@ -74,8 +75,24 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
 
   const removeProduct = (productId: number) => {
     try {
-      const removeProduct = cart.filter((product) => product.id !== productId);
-      setCart(removeProduct);
+      // carrega o carrinho
+      const removedCart = [...cart];
+      const productExists = removedCart.find(
+        (product) => product.id === productId
+      );
+      if (!productExists) {
+        throw Error;
+      } else {
+        // cria um novo array sem o produto do Id indicado e salva
+        const removeProduct = removedCart.filter(
+          (product) => product.id !== productId
+        );
+        setCart(removeProduct);
+        localStorage.setItem(
+          "@RocketShoes:cart",
+          JSON.stringify(removeProduct)
+        );
+      }
     } catch {
       return toast.error("Erro na remoção do produto");
     }
@@ -86,9 +103,31 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
     amount,
   }: UpdateProductAmount) => {
     try {
+      // se a quantidade for menor que zero sair da função
+      if (amount <= 0) return;
       // carrega o que já existe
-      // substitui o valor inicial pelo novo
-      //salva
+      const updatedCart = [...cart];
+      const stock = await api.get(`/stock/${productId}`);
+      const stockAmountToUpdate = stock.data.amount;
+
+      // Se for solicitada quantidade maior do que existe
+      if (amount > stockAmountToUpdate) {
+        toast.error("Quantidade solicitada fora de estoque");
+        return;
+      }
+      // Verificar se produto a ser adicionado existe
+      const productExists = updatedCart.find(
+        (product) => product.id === productId
+      );
+
+      //salva se o produto existir no carrinho. Senão, lança erro pois deveria existir
+      if (productExists) {
+        productExists.amount = amount;
+        setCart(updatedCart);
+        localStorage.setItem("@RocketShoes:cart", JSON.stringify(updatedCart));
+      } else {
+        throw Error();
+      }
     } catch {
       toast.error("Erro na alteração de quantidade do produto");
     }
